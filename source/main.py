@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tree import Tree
+import random
 
 # for reproducibility
 SEED = 0
@@ -30,7 +31,8 @@ def fitness(expected, predicted):
 
 def main():
     
-    np.random.seed(SEED)
+    # random.seed(SEED)
+    # np.random.seed(SEED)
 
     dataset = 'breastEW'
 
@@ -40,22 +42,34 @@ def main():
     X_train = data_normalizer(X_train) # Yes, should be normalized after the train test split
     X_test = data_normalizer(X_test)
 
-    t = Tree(input_size=4) # the tree being generated is fixed
+    # TOY
+    # testar tbm importando tree_first ao inves de tree
+    # t = Tree(input_size=4)
+    # t.build_visualization()
+    # print(t.forward(np.zeros(4)))
+    # exit()
 
-    outputs = np.zeros(X_train.shape[0])
+    k = 50
 
-    for i in range(X_train.shape[0]):
-        output = t.forward(X_train[i, :4]) # only using the first four features due to the fixed tree
+    trees_fitness = np.zeros(k)
+    trees = [Tree(input_size=4) for _ in range(k)]
 
-        # TODO: Since I did not understand this part, I kept it simple.. need to check this (it is related on how is the forward of P)
+    for e, t in enumerate(trees):
 
-        output = 1.0 if output > 0.5 else 0.0
+        outputs = np.zeros(X_train.shape[0])
 
-        outputs[i] = output
+        for i in range(X_train.shape[0]):
+            output = t.forward(X_train[i, :4]) # only using the first four features due to the fixed tree
 
-    fit = fitness(Y_train, outputs)
+            # TODO: Since I did not understand this part, I kept it simple.. need to check this (it is related on how is the forward of P)
 
-    print(fit)
+            output = 1.0 if output > 0.5 else 0.0
+
+            outputs[i] = output
+
+        trees_fitness[e] = fitness(Y_train, outputs)
+
+    print(trees_fitness)
 
     
 
