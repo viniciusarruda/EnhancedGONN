@@ -27,8 +27,7 @@ class Tree:
         # never forget to input the tree
         assert input_d.shape == (self.input_size,)
         D.input_reference = input_d
-        return self.root.forward()
-
+        return 1.0 if 0.5 < self.root.forward() else 0.0
 
     def build_visualization(self):
 
@@ -43,7 +42,6 @@ class Tree:
         self.nodes = {'P':[], 'W':[], 'A':[], 'F':[], 'D':[]}
         self.root.build_nodes(self.nodes)
     
-
     @staticmethod
     def crossover(t1, t2):
 
@@ -87,7 +85,6 @@ class Tree:
         return t1, t2    
     
 
-
 class P:
 
     # count for visualization
@@ -125,8 +122,6 @@ class P:
         nodes['P'].append(self)
         self.left_child.build_nodes(nodes)
         self.right_child.build_nodes(nodes)
-
-
 
 
 class W:
@@ -243,6 +238,7 @@ class F:
     def build_nodes(self, nodes):
         nodes['F'].append(self)
 
+
 class D:
 
     # count for visualization
@@ -270,3 +266,16 @@ class D:
 
     def build_nodes(self, nodes):
         nodes['D'].append(self)
+
+
+class Forest:
+
+    def __init__(self, input_size, depth, n_classes):
+        self.n_classes = n_classes
+        self.trees = [Tree(input_size=input_size, depth=np.random.choice(depth)) for _ in range(n_classes)]
+        self.outputs = np.zeros(n_classes)
+        
+    def forward(self, input_d):
+        for p in range(self.n_classes):
+            self.outputs[p] = self.trees[p].forward(input_d)
+        return self.outputs
