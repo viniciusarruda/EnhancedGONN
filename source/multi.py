@@ -50,7 +50,7 @@ def main():
     random.seed(SEED)
     np.random.seed(SEED)
 
-    dataset = 'multiple_features'
+    dataset = 'iris'
 
     X, Y = data_loader('datasets/{}.npy'.format(dataset))
     n_features, n_classes = {'breastEW':(30, 2), 'hepatitis':(19, 2), 'multiple_features':(649, 10), 'iris':(4, 3)}[dataset]  # I put iris here just to test but it was not in the first assignment so we do not need to include it in our results
@@ -139,7 +139,7 @@ def main():
 
         population = next_gen
 
-    print('max: ', population[0][1])
+    print('max: ', population[0])
 
 if __name__ == "__main__":
     
