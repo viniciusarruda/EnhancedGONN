@@ -74,7 +74,7 @@ def main():
     pr = 0.2 # Pr% in the paper
     n_pr = int(k * pr)
 
-    population = [[Tree(input_size=4), 0] for _ in range(k)]
+    population = [[Tree(input_size=X_train.shape[1], depth=random.choice([3,4,5,6])), 0] for _ in range(k)]
 
     for e in range(epochs):
 

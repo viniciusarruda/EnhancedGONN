@@ -88,8 +88,6 @@ class Tree:
     
 
 
-
-
 class P:
 
     # count for visualization
@@ -193,8 +191,14 @@ class A:
             self.left_child = random.choice([F, A])(depth + 1, max_depth, self)
             self.right_child = random.choice([F, A])(depth + 1, max_depth, self)
 
-        ops = [('*', operator.mul), ('+', operator.add), ('-', operator.sub), ('%', operator.mod)]
+        ops = [('*', operator.mul), ('+', operator.add), ('-', operator.sub), ('%', self.div)]
         self.op_symbol, self.op = random.choice(ops)
+
+    def div(self, dividend, divisor):
+        if 1.0e-15 >= abs(divisor):
+            return 0
+        else:
+            return dividend / divisor
 
     def forward(self):  
         return self.op(self.left_child.forward(), self.right_child.forward())
