@@ -95,40 +95,41 @@ def main():
             ia = population[fidx_1]
             ib = population[fidx_2]
 
-            fa = ia[0]
-            fb = ib[0]
-
             idx = np.random.randint(n_classes)
 
-            ta = fa[idx]
-            tb = fb[idx]
+            ta = ia[0].trees[idx]
+            tb = ib[0].trees[idx]
 
             gen_1, gen_2 = Tree.crossover(ta, tb)
 
-            fa[idx] = gen_1
-            fb[idx] = gen_2
+            ia[0].trees[idx] = gen_1
+            ib[0].trees[idx] = gen_2
 
-            f1 = evaluate_forest(fa, X_train, Y_train)
-            f2 = evaluate_forest(fb, X_train, Y_train)
+            f1 = evaluate_forest(ia[0], X_train, Y_train)
+            f2 = evaluate_forest(ib[0], X_train, Y_train)
 
             if f1 > ia[1]:  # if not, is applied with the same parents or not ? I am changing the parents..
-                next_gen.append([copy.deepcopy(fa), f1])
+                next_gen.append([copy.deepcopy(ia[0]), f1])
             
             if f2 > ib[1]:
-                next_gen.append([copy.deepcopy(fb), f2])
+                next_gen.append([copy.deepcopy(ib[0]), f2])
 
             # another possibility
-            fa[idx] = gen_2
-            fb[idx] = gen_1
+            ia[0].trees[idx] = gen_2
+            ib[0].trees[idx] = gen_1
 
-            f3 = evaluate_forest(fa, X_train, Y_train)
-            f4 = evaluate_forest(fb, X_train, Y_train)
+            f3 = evaluate_forest(ia[0], X_train, Y_train)
+            f4 = evaluate_forest(ib[0], X_train, Y_train)
 
             if f3 > ia[1]:
-                next_gen.append([copy.deepcopy(fa), f3])
+                next_gen.append([copy.deepcopy(ia[0]), f3])
 
             if f4 > ib[1]:
-                next_gen.append([copy.deepcopy(fb), f4])
+                next_gen.append([copy.deepcopy(ib[0]), f4])
+
+            # revert
+            ia[0].trees[idx] = ta
+            ib[0].trees[idx] = tb
 
         next_gen = next_gen[:k] # if there is more than k generated
 
