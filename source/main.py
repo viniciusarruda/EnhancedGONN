@@ -35,14 +35,14 @@ def evaluate_tree(tree, X_train, Y_train):
     outputs = np.zeros(X_train.shape[0])
 
     for i in range(X_train.shape[0]):
-        output = tree.forward(X_train[i, :4]) # only using the first four features due to the fixed tree
+        output = tree.forward(X_train[i, :]) # only using the first four features due to the fixed tree
         # TODO: Since I did not understand this part, I kept it simple.. need to check this (it is related on how is the forward of P)
         outputs[i] = 1.0 if output > 0.5 else 0.0
 
     return fitness(Y_train, outputs)
 
 def evaluate_population(population, X_train, Y_train):
-        
+
     for p in range(len(population)):
         population[p][1] = evaluate_tree(population[p][0], X_train, Y_train)
 
@@ -108,8 +108,6 @@ def main():
         # acho que eh isso que entendi.. 
 
         population = next_gen
-
-
 
 if __name__ == "__main__":
     
