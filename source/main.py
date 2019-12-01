@@ -29,10 +29,30 @@ def fitness(expected, predicted):
     assert expected.shape == predicted.shape
     return 1.0 / (1.0 + np.square(expected - predicted).mean())
 
+
+def evaluate_tree(tree, X_train, Y_train):
+
+    outputs = np.zeros(X_train.shape[0])
+
+    for i in range(X_train.shape[0]):
+        output = tree.forward(X_train[i, :4]) # only using the first four features due to the fixed tree
+        # TODO: Since I did not understand this part, I kept it simple.. need to check this (it is related on how is the forward of P)
+        outputs[i] = 1.0 if output > 0.5 else 0.0
+
+    return fitness(Y_train, outputs)
+
+def evaluate_population(population, X_train, Y_train):
+        
+    for p in range(len(population)):
+        population[p][1] = evaluate_tree(population[p][0], X_train, Y_train)
+
+    return sorted(population, key=lambda x: x[1], reverse=True)
+
+
 def main():
     
-    # random.seed(SEED)
-    # np.random.seed(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
 
     dataset = 'breastEW'
 
@@ -50,28 +70,45 @@ def main():
     # exit()
 
     k = 50
+    epochs = 10
+    pr = 0.2 # Pr% in the paper
+    n_pr = int(k * pr)
 
-    trees_fitness = np.zeros(k)
-    trees = [Tree(input_size=4) for _ in range(k)]
+    population = [[Tree(input_size=4), 0] for _ in range(k)]
 
-    for e, t in enumerate(trees):
+    for e in range(epochs):
 
-        outputs = np.zeros(X_train.shape[0])
+        population = evaluate_population(population, X_train, Y_train)
 
-        for i in range(X_train.shape[0]):
-            output = t.forward(X_train[i, :4]) # only using the first four features due to the fixed tree
+        # pop_fitness = [p[1] for p in population]
+        # print(pop_fitness) # just to show
 
-            # TODO: Since I did not understand this part, I kept it simple.. need to check this (it is related on how is the forward of P)
+        next_gen = population[:n_pr]
+        population = population[n_pr:]
 
-            output = 1.0 if output > 0.5 else 0.0
+        while len(next_gen) < k:
 
-            outputs[i] = output
+            idx_1, idx_2 = np.random.permutation(len(population))[:2]
 
-        trees_fitness[e] = fitness(Y_train, outputs)
+            gen_1, gen_2 = Tree.crossover(population[idx_1][0], population[idx_2][0])
 
-    print(trees_fitness)
+            f1 = evaluate_tree(gen_1, X_train, Y_train)
+            f2 = evaluate_tree(gen_2, X_train, Y_train)
 
-    
+            if f1 > population[idx_1][1]:  # if not, is applied with the same parents or not ? I am changing the parents..
+                next_gen.append([gen_1, f1])
+            
+            if f2 > population[idx_2][1]:
+                next_gen.append([gen_2, f2])
+
+        next_gen = next_gen[:k] # if there is more than k generated
+
+        # Keep only best Pc% from next_gen
+        # Apply mutation on worst Pm% and then, append them to next_gen..
+        # acho que eh isso que entendi.. 
+
+        population = next_gen
+
 
 
 if __name__ == "__main__":
