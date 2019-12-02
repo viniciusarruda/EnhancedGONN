@@ -121,27 +121,35 @@ def main():
             f1, e1 = evaluate_forest(ia[0], X_train, Y_train)
             f2, e2 = evaluate_forest(ib[0], X_train, Y_train)
 
+            error = min([e1, e2, error])
+
+            a_appended = False
+            b_appended = False
+
             if f1 > ia[1]:
                 new_individuals.append([copy.deepcopy(ia[0]), f1])
+                a_appended = True
 
             if f2 > ib[1]:
                 new_individuals.append([copy.deepcopy(ib[0]), f2])
+                b_appended = True
 
             # another possibility
-            ia[0].trees[idx] = gen_2
-            ib[0].trees[idx] = gen_1
+            if not a_appended:
+                ia[0].trees[idx] = gen_2
+                f3, e3 = evaluate_forest(ia[0], X_train, Y_train)
+                if e3 < error:
+                    error = e3
+                if f3 > ia[1]:
+                    new_individuals.append([copy.deepcopy(ia[0]), f3])
 
-            f3, e3 = evaluate_forest(ia[0], X_train, Y_train)
-            f4, e4 = evaluate_forest(ib[0], X_train, Y_train)
-
-            if f3 > ia[1]:
-                new_individuals.append([copy.deepcopy(ia[0]), f3])
-
-            if f4 > ib[1]:
-                new_individuals.append([copy.deepcopy(ib[0]), f4])
-
-            # se esta nova arvore gerada acabar entrando em todas as florestas, isso nao iria dimiuir a diversidade nao ?
-            # talves se entrou em aguma floresta, nao inserir em outra ?
+            if not b_appended:
+                ib[0].trees[idx] = gen_1
+                f4, e4 = evaluate_forest(ib[0], X_train, Y_train)
+                if e4 < error:
+                    error = e4
+                if f4 > ib[1]:
+                    new_individuals.append([copy.deepcopy(ib[0]), f4])
 
             # revert
             ia[0].trees[idx] = ta
@@ -168,16 +176,14 @@ def main():
 
                 f[0].trees[idx] = t_mutated
 
-                fit, e = evaluate_forest(f[0], X_train, Y_train)
-                if e < error:
-                    error = e
+                fit, e5 = evaluate_forest(f[0], X_train, Y_train)
+                if e5 < error:
+                    error = e5
 
                 if fit > f[1]:
                     new_individuals.append([copy.deepcopy(f[0]), fit])
                     break
         # end of mutation
-
-        error = min([error, e1, e2, e3, e4])
 
         assert len(new_individuals) == n_pm
         next_gen += new_individuals
