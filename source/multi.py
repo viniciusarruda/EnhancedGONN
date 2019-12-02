@@ -1,10 +1,10 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
-from tree import Tree
-from tree import Forest
+from tree import Tree, Forest
 import random
 import copy
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 # for reproducibility
 SEED = 0
@@ -44,6 +44,12 @@ def evaluate_population(population, X_train, Y_train):
         population[p][1] = evaluate_forest(population[p][0], X_train, Y_train)
     return sorted(population, key=lambda x: x[1], reverse=True)
 
+def one_hot_encoder(classes, n_classes):
+    
+    assert len(classes.shape) == 1
+    one_hot = np.zeros((classes.size, n_classes))
+    one_hot[np.arange(classes.size), classes.astype(np.int64)] = 1.0
+    return one_hot
 
 def main():
     
@@ -57,38 +63,35 @@ def main():
     X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=SEED, stratify=Y)
     X_train = data_normalizer(X_train) # Yes, should be normalized after the train test split
     X_test = data_normalizer(X_test)
+    Y_train = one_hot_encoder(Y_train, n_classes)
+    Y_test = one_hot_encoder(Y_test, n_classes)
 
-    if 2 < n_classes:
-        enc = OneHotEncoder(sparse=False, handle_unknown='ignore')
-        Y_train = enc.fit_transform([[l] for l in Y_train])
-        Y_test = enc.fit_transform([[l] for l in Y_test])
-
-    # TOY
-    # testar tbm importando tree_first ao inves de tree
-    # t = Tree(input_size=4)
-    # t.build_visualization()
-    # print(t.forward(np.zeros(4)))
-    # exit()
-
-    k = 50
-    epochs = 14
+    k = 10
+    epochs = 10 #14
     pr = 0.2 # Pr% in the paper
+    pm = 0.2 # Pm% in the paper
+    pc = 0.6 # Pc% in the paper
     n_pr = int(k * pr)
-    depth = [3, 4, 5, 6]
+    n_pc = int(k * pc)
+    n_pm = int(k * pm)
 
-    population = [[Forest(input_size=X_train.shape[1], depth=depth, n_classes=n_classes), 0.0] for _ in range(k)]
+    record_fitness = np.zeros((epochs+1, k))
 
-    for e in range(epochs):
+    population = [[Forest(input_size=X_train.shape[1], n_classes=n_classes), 0.0] for _ in range(k)]
+
+    for e in tqdm(range(epochs)):
 
         population = evaluate_population(population, X_train, Y_train)
 
-        # pop_fitness = [p[1] for p in population]
-        # print(pop_fitness) # just to show
+        for i in range(k):
+            record_fitness[e, i] = population[i][1]
 
         next_gen = population[:n_pr]
         population = population[n_pr:]
+        new_individuals = []
 
-        while len(next_gen) < k:
+        # Crossover (should not be inside the Forest class ?)
+        while len(new_individuals) < len(population):
 
             fidx_1, fidx_2 = np.random.permutation(len(population))[:2]
 
@@ -102,17 +105,18 @@ def main():
 
             gen_1, gen_2 = Tree.crossover(ta, tb)
 
+            # one possibility
             ia[0].trees[idx] = gen_1
             ib[0].trees[idx] = gen_2
 
             f1 = evaluate_forest(ia[0], X_train, Y_train)
             f2 = evaluate_forest(ib[0], X_train, Y_train)
 
-            if f1 > ia[1]:  # if not, is applied with the same parents or not ? I am changing the parents..
-                next_gen.append([copy.deepcopy(ia[0]), f1])
+            if f1 > ia[1]:  
+                new_individuals.append([copy.deepcopy(ia[0]), f1])
             
             if f2 > ib[1]:
-                next_gen.append([copy.deepcopy(ib[0]), f2])
+                new_individuals.append([copy.deepcopy(ib[0]), f2])
 
             # another possibility
             ia[0].trees[idx] = gen_2
@@ -122,25 +126,68 @@ def main():
             f4 = evaluate_forest(ib[0], X_train, Y_train)
 
             if f3 > ia[1]:
-                next_gen.append([copy.deepcopy(ia[0]), f3])
+                new_individuals.append([copy.deepcopy(ia[0]), f3])
 
             if f4 > ib[1]:
-                next_gen.append([copy.deepcopy(ib[0]), f4])
+                new_individuals.append([copy.deepcopy(ib[0]), f4])
+
+            # se esta nova arvore gerada acabar entrando em todas as florestas, isso nao iria dimiuir a diversidade nao ?
+            # talves se entrou em aguma floresta, nao inserir em outra ?
 
             # revert
             ia[0].trees[idx] = ta
             ib[0].trees[idx] = tb
+        # end of crossover
 
-        # remove undesired children after a proper sort
-        next_gen = sorted(next_gen, key=lambda x: x[1], reverse=True)[:k]
+        new_individuals = sorted(new_individuals, key=lambda x: x[1], reverse=True)[:len(population)] # remove extra if there is more than the permited..   
 
-        # Keep only best Pc% from next_gen
-        # Apply mutation on worst Pm% and then, append them to next_gen..
-        # acho que eh isso que entendi.. 
+        next_gen += new_individuals[:n_pc]
+        individuals_to_mutate = new_individuals[n_pc:]
+        assert len(individuals_to_mutate) == n_pm
+
+        new_individuals = []
+
+        # Mutation (should not be inside the Forest class ?)
+        for f in individuals_to_mutate:
+            while True:
+
+                idx = np.random.randint(n_classes)
+
+                t = f[0].trees[idx]
+
+                t_mutated = Tree.mutate(t)
+
+                f[0].trees[idx] = t_mutated
+
+                fit = evaluate_forest(f[0], X_train, Y_train)
+
+                if fit > f[1]:  
+                    new_individuals.append([copy.deepcopy(f[0]), fit])
+                    break
+        # end of mutation
+
+        assert len(new_individuals) == n_pm
+        next_gen += new_individuals
+        assert len(next_gen) == k
 
         population = next_gen
 
+    population = evaluate_population(population, X_train, Y_train)
+    for i in range(k):
+        record_fitness[epochs, i] = population[i][1]
+
     print('max: ', population[0])
+
+    # for e, f in enumerate(population):
+    #     f[0].build_visualization(e)
+
+    fig, ax = plt.subplots(nrows=k, ncols=1, sharex=True, gridspec_kw={'hspace': 0})
+
+    for e, row in enumerate(ax):
+        row.plot(np.arange(epochs+1), record_fitness[:, e])
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     

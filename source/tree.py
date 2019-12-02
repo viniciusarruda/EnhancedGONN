@@ -1,16 +1,55 @@
+import os
 import numpy as np
 import operator
 import random
 from graphviz import Graph
 import copy
+import scipy.special
 
+class Forest:
+
+    # just for visualization
+    forest_counter = 0
+
+    def __init__(self, input_size, n_classes):
+        self.n_classes = n_classes
+        self.trees = [Tree(input_size=input_size, depth=np.random.choice([3, 4, 5, 6])) for _ in range(n_classes)]
+        self.outputs = np.zeros(n_classes)
+
+        self.forest_id = Forest.forest_counter
+        Forest.forest_counter += 1
+
+    def __del__(self):
+        for t in self.trees:
+            del t
+        del self
+        
+    def forward(self, input_d):
+        for p in range(self.n_classes):
+            self.outputs[p] = self.trees[p].forward(input_d)
+        return self.outputs
+
+    # @staticmethod
+    # def crossover(f1, f2):
+    # the forest crossover should be here ?
+    # also, the mutation?
+
+    def build_visualization(self, i):
+
+        folder_name = 'graphviz-output/Forest({})_{}/'.format(self.forest_id, i)
+        os.makedirs(folder_name)
+
+        for t in self.trees:
+            t.build_visualization(folder_name)
+        
+        
 
 class Tree:
 
     # just for visualization
     tree_counter = 0
     
-    def __init__(self, input_size, depth=6):  # como saber ao certo a profundidade ?
+    def __init__(self, input_size, depth):  # como saber ao certo a profundidade ?
 
         self.input_size = input_size
         D.input_size = input_size
@@ -19,8 +58,9 @@ class Tree:
         self.tree_id = Tree.tree_counter
         Tree.tree_counter += 1
 
-        # TODO: Here, we need to keep track to all nodes and its types, because
-        # for the crossover, only nodes with the same type can be swapped
+    def __del__(self):
+        del self.root
+        del self
 
     def forward(self, input_d):
 
@@ -29,14 +69,14 @@ class Tree:
         D.input_reference = input_d
         return 1.0 if 0.5 < self.root.forward() else 0.0
 
-    def build_visualization(self):
+    def build_visualization(self, folder):
 
         viz = Graph(comment='Tree')
         node_id = 'O({})'.format(self.tree_id)
         viz.node(node_id, node_id)
         self.root.build_visualization(viz, node_id)
         # print(viz.source)     
-        viz.render('graphviz-output/tree_{}.gv'.format(self.tree_id))
+        viz.render('{}tree_{}.gv'.format(folder, self.tree_id))
 
     def build_nodes(self):
         self.nodes = {'P':[], 'W':[], 'A':[], 'F':[], 'D':[]}
@@ -47,17 +87,20 @@ class Tree:
 
         t1, t2 = copy.deepcopy(t1), copy.deepcopy(t2)
         
-        if np.random.uniform() < 0.9:
-            node_type = random.choice(['P', 'W', 'A'])
-        else:
-            node_type = random.choice(['F', 'D'])
+        while True: # python do not have a do while, so...
 
-        # node_type = 'P'  <- isso estava aqui.. era um teste ? eu comentei (Vinicius)
+            if np.random.uniform() < 0.9:
+                node_type = random.choice(['P', 'W', 'A'])
+            else:
+                node_type = random.choice(['F', 'D'])
 
-        # should be optimized, but do not spend your time with this... we are late
-        t1.build_nodes() # do not forget to reconstruct this before this operation
-        t2.build_nodes() # do not forget to reconstruct this before this operation
-        assert len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0
+            # should be optimized, but do not spend your time with this... we are late
+            t1.build_nodes() # do not forget to reconstruct this before this operation
+            t2.build_nodes() # do not forget to reconstruct this before this operation
+        
+            # assert len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0
+            if len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0:
+                break
 
         idx_1 = np.random.randint(low=0, high=len(t1.nodes[node_type]))
         idx_2 = np.random.randint(low=0, high=len(t2.nodes[node_type]))
@@ -83,6 +126,50 @@ class Tree:
         t1_node.parent = t2_node_parent
 
         return t1, t2    
+
+
+    @staticmethod
+    def mutate(t):
+
+        t = copy.deepcopy(t)
+
+        while True: # python do not have a do while, so...
+
+            if np.random.uniform() < 0.9:
+                node_type = random.choice(['F', 'D'])
+            else:
+                node_type = random.choice(['P', 'W', 'A'])
+
+            # should be optimized, but do not spend your time with this... we are late
+            t.build_nodes() # do not forget to reconstruct this before this operation
+        
+            if len(t.nodes[node_type]) > 0:
+                break
+
+        idx = np.random.randint(low=0, high=len(t.nodes[node_type]))    
+        t_node = t.nodes[node_type][idx]
+
+        max_depth = np.random.choice([3, 4, 5, 6])
+
+        new_sub_tree = {'P': P, 'W': W, 'A': A, 'F': F, 'D': D}[node_type](1, max_depth, t_node.parent)
+
+        if node_type == 'P' and isinstance(t_node.parent, Tree): # if the parent is a Tree, of course the node_type is 'P'
+            t_node.parent.root = new_sub_tree
+        elif t_node.parent.left_child == t_node:
+            t_node.parent.left_child = new_sub_tree
+        else:
+            t_node.parent.right_child = new_sub_tree
+        # new_sub_tree.parent = t_node.parent # already seted on creation
+
+        # now, the subtree from t_node to end is left to the garbage colector
+        # del t_node
+        # I implemented the __del__ to guarantee that the nodes are not used due to wrong implementation
+
+        return t
+
+
+
+
     
 
 class P:
@@ -99,6 +186,11 @@ class P:
         self.node_id = P.node_counter
         P.node_counter += 1
 
+    def __del__(self):
+        del self.left_child
+        del self.right_child
+        del self
+
     # TODO: very confusing how is the forward of P, need to check this
     def forward(self):
         left_child_out = self.left_child.forward()
@@ -107,7 +199,8 @@ class P:
         return self._sigmoid(left_child_out + right_child_out)
 
     def _sigmoid(self, x):
-        return 1.0 / (1.0 + np.exp(-x))
+        # return 1.0 / (1.0 + np.exp(-x)) # not safe
+        return scipy.special.expit(x) # safer
 
     
     def build_visualization(self, viz, parent_id):
@@ -148,6 +241,10 @@ class W:
             self.left_child = random.choice([F, A])(depth + 1, max_depth, self)
             self.right_child = random.choice([D, P])(depth + 1, max_depth, self)
 
+    def __del__(self):
+        del self.left_child
+        del self.right_child
+        del self
 
     def forward(self):
         return self.left_child.forward() * self.right_child.forward()
@@ -188,6 +285,11 @@ class A:
 
         ops = [('*', operator.mul), ('+', operator.add), ('-', operator.sub), ('%', self.div)]
         self.op_symbol, self.op = random.choice(ops)
+
+    def __del__(self):
+        del self.left_child
+        del self.right_child
+        del self
 
     def div(self, dividend, divisor):
         if 1.0e-15 >= abs(divisor):
@@ -267,15 +369,3 @@ class D:
     def build_nodes(self, nodes):
         nodes['D'].append(self)
 
-
-class Forest:
-
-    def __init__(self, input_size, depth, n_classes):
-        self.n_classes = n_classes
-        self.trees = [Tree(input_size=input_size, depth=np.random.choice(depth)) for _ in range(n_classes)]
-        self.outputs = np.zeros(n_classes)
-        
-    def forward(self, input_d):
-        for p in range(self.n_classes):
-            self.outputs[p] = self.trees[p].forward(input_d)
-        return self.outputs
