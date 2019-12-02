@@ -23,7 +23,7 @@ class Forest:
         for t in self.trees:
             del t
         del self
-        
+
     def forward(self, input_d):
         for p in range(self.n_classes):
             self.outputs[p] = self.trees[p].forward(input_d)
@@ -41,14 +41,14 @@ class Forest:
 
         for t in self.trees:
             t.build_visualization(folder_name)
-        
-        
+
+
 
 class Tree:
 
     # just for visualization
     tree_counter = 0
-    
+
     def __init__(self, input_size, depth):  # como saber ao certo a profundidade ?
 
         self.input_size = input_size
@@ -75,18 +75,18 @@ class Tree:
         node_id = 'O({})'.format(self.tree_id)
         viz.node(node_id, node_id)
         self.root.build_visualization(viz, node_id)
-        # print(viz.source)     
+        # print(viz.source)
         viz.render('{}tree_{}.gv'.format(folder, self.tree_id))
 
     def build_nodes(self):
         self.nodes = {'P':[], 'W':[], 'A':[], 'F':[], 'D':[]}
         self.root.build_nodes(self.nodes)
-    
+
     @staticmethod
     def crossover(t1, t2):
 
         t1, t2 = copy.deepcopy(t1), copy.deepcopy(t2)
-        
+
         while True: # python do not have a do while, so...
 
             if np.random.uniform() < 0.9:
@@ -97,7 +97,7 @@ class Tree:
             # should be optimized, but do not spend your time with this... we are late
             t1.build_nodes() # do not forget to reconstruct this before this operation
             t2.build_nodes() # do not forget to reconstruct this before this operation
-        
+
             # assert len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0
             if len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0:
                 break
@@ -125,7 +125,7 @@ class Tree:
             t2_node_parent.right_child = t1_node
         t1_node.parent = t2_node_parent
 
-        return t1, t2    
+        return t1, t2
 
 
     @staticmethod
@@ -142,11 +142,11 @@ class Tree:
 
             # should be optimized, but do not spend your time with this... we are late
             t.build_nodes() # do not forget to reconstruct this before this operation
-        
+
             if len(t.nodes[node_type]) > 0:
                 break
 
-        idx = np.random.randint(low=0, high=len(t.nodes[node_type]))    
+        idx = np.random.randint(low=0, high=len(t.nodes[node_type]))
         t_node = t.nodes[node_type][idx]
 
         max_depth = np.random.choice([3, 4, 5, 6])
@@ -168,10 +168,6 @@ class Tree:
         return t
 
 
-
-
-    
-
 class P:
 
     # count for visualization
@@ -182,38 +178,43 @@ class P:
         assert depth <= max_depth
         self.parent = parent
         self.left_child = W(depth + 1, max_depth, self)
+        self.center_child = W(depth + 1, max_depth, self)
         self.right_child = W(depth + 1, max_depth, self)
         self.node_id = P.node_counter
         P.node_counter += 1
 
     def __del__(self):
         del self.left_child
+        del self.center_child
         del self.right_child
         del self
 
     # TODO: very confusing how is the forward of P, need to check this
     def forward(self):
         left_child_out = self.left_child.forward()
+        center_child_out = self.center_child.forward()
         right_child_out = self.right_child.forward()
 
-        return self._sigmoid(left_child_out + right_child_out)
+        return self._sigmoid(left_child_out + center_child_out + right_child_out)
 
     def _sigmoid(self, x):
         # return 1.0 / (1.0 + np.exp(-x)) # not safe
         return scipy.special.expit(x) # safer
 
-    
+
     def build_visualization(self, viz, parent_id):
 
         node_id = 'P{}'.format(self.node_id)
         viz.node(node_id, node_id)
         viz.edge(parent_id, node_id)
         self.left_child.build_visualization(viz, node_id)
+        self.center_child.build_visualization(viz, node_id)
         self.right_child.build_visualization(viz, node_id)
 
     def build_nodes(self, nodes):
         nodes['P'].append(self)
         self.left_child.build_nodes(nodes)
+        self.center_child.build_nodes(nodes)
         self.right_child.build_nodes(nodes)
 
 
@@ -297,7 +298,7 @@ class A:
         else:
             return dividend / divisor
 
-    def forward(self):  
+    def forward(self):
         return self.op(self.left_child.forward(), self.right_child.forward())
 
 
@@ -351,7 +352,7 @@ class D:
 
     def __init__(self, depth, max_depth, parent):
         # print(depth, max_depth)
-        assert depth <= max_depth   
+        assert depth <= max_depth
         self.parent = parent
         self.node_id = D.node_counter
         D.node_counter += 1
@@ -368,4 +369,3 @@ class D:
 
     def build_nodes(self, nodes):
         nodes['D'].append(self)
-
