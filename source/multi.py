@@ -71,7 +71,7 @@ def main():
     # exit()
 
     k = 50
-    epochs = 10
+    epochs = 14
     pr = 0.2 # Pr% in the paper
     n_pr = int(k * pr)
     depth = [3, 4, 5, 6]
@@ -131,7 +131,8 @@ def main():
             ia[0].trees[idx] = ta
             ib[0].trees[idx] = tb
 
-        next_gen = next_gen[:k] # if there is more than k generated
+        # remove undesired children after a proper sort
+        next_gen = sorted(next_gen, key=lambda x: x[1], reverse=True)[:k]
 
         # Keep only best Pc% from next_gen
         # Apply mutation on worst Pm% and then, append them to next_gen..
