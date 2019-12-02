@@ -166,6 +166,7 @@ def main():
 
         # Mutation (should not be inside the Forest class ?)
         for f in individuals_to_mutate:
+
             while True:
 
                 idx = np.random.randint(n_classes)
