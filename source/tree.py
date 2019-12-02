@@ -185,24 +185,21 @@ class P:
         assert depth <= max_depth
         self.parent = parent
         self.left_child = W(depth + 1, max_depth, self)
-        self.center_child = W(depth + 1, max_depth, self)
         self.right_child = W(depth + 1, max_depth, self)
         self.node_id = P.node_counter
         P.node_counter += 1
 
     def __del__(self):
         del self.left_child
-        del self.center_child
         del self.right_child
         del self
 
     # TODO: very confusing how is the forward of P, need to check this
     def forward(self):
         left_child_out = self.left_child.forward()
-        center_child_out = self.center_child.forward()
         right_child_out = self.right_child.forward()
 
-        return self._sigmoid(left_child_out + center_child_out + right_child_out)
+        return self._sigmoid(left_child_out + right_child_out)
 
     def _sigmoid(self, x):
         # return 1.0 / (1.0 + np.exp(-x)) # not safe
@@ -215,13 +212,11 @@ class P:
         viz.node(node_id, node_id)
         viz.edge(parent_id, node_id)
         self.left_child.build_visualization(viz, node_id)
-        self.center_child.build_visualization(viz, node_id)
         self.right_child.build_visualization(viz, node_id)
 
     def build_nodes(self, nodes):
         nodes['P'].append(self)
         self.left_child.build_nodes(nodes)
-        self.center_child.build_nodes(nodes)
         self.right_child.build_nodes(nodes)
 
 
