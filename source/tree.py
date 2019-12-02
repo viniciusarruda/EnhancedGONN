@@ -52,7 +52,7 @@ class Tree:
         else:
             node_type = random.choice(['F', 'D'])
 
-        node_type = 'P'
+        # node_type = 'P'  <- isso estava aqui.. era um teste ? eu comentei (Vinicius)
 
         # should be optimized, but do not spend your time with this... we are late
         t1.build_nodes() # do not forget to reconstruct this before this operation
