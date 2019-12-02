@@ -20,8 +20,8 @@ def data_loader(path):
 
 
 def data_normalizer(X):
-    
-    X /= np.amax(X, axis=0) 
+
+    X /= np.amax(X, axis=0)
     X = (X * 2.0) - 1.0
     return X
 
@@ -30,7 +30,8 @@ def data_normalizer(X):
 # Esta fitness eh muito esquisita!
 def fitness(expected, predicted):
     assert expected.shape == predicted.shape
-    return 1.0 / (1.0 + np.square(expected - predicted).mean())
+    error = np.square(expected - predicted).mean()
+    return 1.0 / (1.0 + error), error
 
 def evaluate_forest(forest, X_train, Y_train):
     outputs = np.zeros([X_train.shape[0], Y_train.shape[1]])
@@ -40,19 +41,22 @@ def evaluate_forest(forest, X_train, Y_train):
 
 
 def evaluate_population(population, X_train, Y_train):
+    error = None
     for p in range(len(population)):
-        population[p][1] = evaluate_forest(population[p][0], X_train, Y_train)
-    return sorted(population, key=lambda x: x[1], reverse=True)
+        population[p][1], e = evaluate_forest(population[p][0], X_train, Y_train)
+        if error is None or e < error:
+            error = e
+    return sorted(population, key=lambda x: x[1], reverse=True), error
 
 def one_hot_encoder(classes, n_classes):
-    
+
     assert len(classes.shape) == 1
     one_hot = np.zeros((classes.size, n_classes))
     one_hot[np.arange(classes.size), classes.astype(np.int64)] = 1.0
     return one_hot
 
 def main():
-    
+
     random.seed(SEED)
     np.random.seed(SEED)
 
@@ -79,9 +83,14 @@ def main():
 
     population = [[Forest(input_size=X_train.shape[1], n_classes=n_classes), 0.0] for _ in range(k)]
 
+    error = None
+
     for e in tqdm(range(epochs)):
 
-        population = evaluate_population(population, X_train, Y_train)
+        population, e0 = evaluate_population(population, X_train, Y_train)
+
+        if error is None or e0 < error:
+            error = e0
 
         for i in range(k):
             record_fitness[e, i] = population[i][1]
@@ -109,12 +118,12 @@ def main():
             ia[0].trees[idx] = gen_1
             ib[0].trees[idx] = gen_2
 
-            f1 = evaluate_forest(ia[0], X_train, Y_train)
-            f2 = evaluate_forest(ib[0], X_train, Y_train)
+            f1, e1 = evaluate_forest(ia[0], X_train, Y_train)
+            f2, e2 = evaluate_forest(ib[0], X_train, Y_train)
 
-            if f1 > ia[1]:  
+            if f1 > ia[1]:
                 new_individuals.append([copy.deepcopy(ia[0]), f1])
-            
+
             if f2 > ib[1]:
                 new_individuals.append([copy.deepcopy(ib[0]), f2])
 
@@ -122,8 +131,8 @@ def main():
             ia[0].trees[idx] = gen_2
             ib[0].trees[idx] = gen_1
 
-            f3 = evaluate_forest(ia[0], X_train, Y_train)
-            f4 = evaluate_forest(ib[0], X_train, Y_train)
+            f3, e3 = evaluate_forest(ia[0], X_train, Y_train)
+            f4, e4 = evaluate_forest(ib[0], X_train, Y_train)
 
             if f3 > ia[1]:
                 new_individuals.append([copy.deepcopy(ia[0]), f3])
@@ -139,7 +148,7 @@ def main():
             ib[0].trees[idx] = tb
         # end of crossover
 
-        new_individuals = sorted(new_individuals, key=lambda x: x[1], reverse=True)[:len(population)] # remove extra if there is more than the permited..   
+        new_individuals = sorted(new_individuals, key=lambda x: x[1], reverse=True)[:len(population)] # remove extra if there is more than the permited..
 
         next_gen += new_individuals[:n_pc]
         individuals_to_mutate = new_individuals[n_pc:]
@@ -159,12 +168,16 @@ def main():
 
                 f[0].trees[idx] = t_mutated
 
-                fit = evaluate_forest(f[0], X_train, Y_train)
+                fit, e = evaluate_forest(f[0], X_train, Y_train)
+                if e < error:
+                    error = e
 
-                if fit > f[1]:  
+                if fit > f[1]:
                     new_individuals.append([copy.deepcopy(f[0]), fit])
                     break
         # end of mutation
+
+        error = min([error, e1, e2, e3, e4])
 
         assert len(new_individuals) == n_pm
         next_gen += new_individuals
@@ -172,11 +185,16 @@ def main():
 
         population = next_gen
 
-    population = evaluate_population(population, X_train, Y_train)
+        if 0.01 > error:
+            print("Min error: ", error)
+            break
+
+    population, error = evaluate_population(population, X_train, Y_train)
     for i in range(k):
         record_fitness[epochs, i] = population[i][1]
 
     print('max: ', population[0])
+    print('min error: ', error)
 
     # for e, f in enumerate(population):
     #     f[0].build_visualization(e)
@@ -190,5 +208,5 @@ def main():
     plt.show()
 
 if __name__ == "__main__":
-    
+
     main()
