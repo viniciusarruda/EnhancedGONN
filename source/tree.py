@@ -86,21 +86,26 @@ class Tree:
     def crossover(t1, t2):
 
         t1, t2 = copy.deepcopy(t1), copy.deepcopy(t2)
-        
-        while True: # python do not have a do while, so...
 
-            if np.random.uniform() < 0.9:
-                node_type = random.choice(['P', 'W', 'A'])
-            else:
-                node_type = random.choice(['F', 'D'])
+        # choosing the node_type to crossover
+        t1.build_nodes() # do not forget to reconstruct this before this operation
+        t2.build_nodes() # do not forget to reconstruct this before this operation
 
-            # should be optimized, but do not spend your time with this... we are late
-            t1.build_nodes() # do not forget to reconstruct this before this operation
-            t2.build_nodes() # do not forget to reconstruct this before this operation
-        
-            # assert len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0
-            if len(t1.nodes[node_type]) > 0 and len(t2.nodes[node_type]) > 0:
-                break
+        existing_nodes_t1 = [key for key in t1.nodes if len(t1.nodes[key]) > 0]
+        existing_nodes_t2 = [key for key in t2.nodes if len(t2.nodes[key]) > 0]
+        existing_nodes = list(set(existing_nodes_t1) & set(existing_nodes_t2))
+
+        function_set = [node_type for node_type in ['P', 'W', 'A'] if node_type in existing_nodes]
+        terminal_set = [node_type for node_type in ['F', 'D'] if node_type in existing_nodes]
+
+        if len(function_set) > 0 and np.random.uniform() < 0.9:
+            node_type = random.choice(function_set)
+        elif len(terminal_set) > 0:
+            node_type = random.choice(terminal_set)
+        else: 
+            print('vish.. I dont know what to do')
+            exit()
+        # node_type chosen
 
         idx_1 = np.random.randint(low=0, high=len(t1.nodes[node_type]))
         idx_2 = np.random.randint(low=0, high=len(t2.nodes[node_type]))
@@ -133,18 +138,22 @@ class Tree:
 
         t = copy.deepcopy(t)
 
-        while True: # python do not have a do while, so...
+        # choosing the node_type to mutate
+        t.build_nodes() # do not forget to reconstruct this before this operation
 
-            if np.random.uniform() < 0.9:
-                node_type = random.choice(['F', 'D'])
-            else:
-                node_type = random.choice(['P', 'W', 'A'])
+        existing_nodes = [key for key in t.nodes if len(t.nodes[key]) > 0]
 
-            # should be optimized, but do not spend your time with this... we are late
-            t.build_nodes() # do not forget to reconstruct this before this operation
-        
-            if len(t.nodes[node_type]) > 0:
-                break
+        function_set = [node_type for node_type in ['P', 'W', 'A'] if node_type in existing_nodes]
+        terminal_set = [node_type for node_type in ['F', 'D'] if node_type in existing_nodes]
+
+        if len(terminal_set) > 0 and np.random.uniform() < 0.9:
+            node_type = random.choice(terminal_set)
+        elif len(function_set) > 0:
+            node_type = random.choice(function_set)
+        else: 
+            print('vish.. I dont know what to do')
+            exit()
+        # node_type chosen
 
         idx = np.random.randint(low=0, high=len(t.nodes[node_type]))    
         t_node = t.nodes[node_type][idx]
