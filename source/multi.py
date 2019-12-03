@@ -25,6 +25,17 @@ class MaxEvaluationsExceeded(Exception):
     pass
 
 
+def forest_accuracy(forest, X, Y):
+    outputs = np.zeros([X.shape[0], Y.shape[1]])
+    for i in range(X.shape[0]):
+        outputs[i] = forest.forward(X[i, :])
+    
+    assert Y.shape == outputs.shape
+    expected = np.argmax(Y, axis=1)
+    predicted = np.argmax(outputs, axis=1)
+    return (expected == predicted).mean()
+
+
 def fitness(expected, predicted):
     assert expected.shape == predicted.shape
     expected = np.argmax(expected, axis=1)
@@ -259,8 +270,10 @@ def main(k, epochs, dataset):
     ######## Testing
 
     testing_fitness, error = evaluate_forest(best_forest, X_test, Y_test, count_evals=False)
+    testing_acc = forest_accuracy(best_forest, X_test, Y_test)
     print('Testing fitness: ', testing_fitness)
     print('Testing error: ', error)
+    print('Testing accuracy: ', testing_acc)
 
     cm = evaluate_and_confusion_matrix(best_forest, X_test, Y_test)
     plot_confusion_matrix(cm, np.arange(n_classes))
