@@ -29,14 +29,9 @@ class Forest:
             self.outputs[p] = self.trees[p].forward(input_d)
         return self.outputs
 
-    # @staticmethod
-    # def crossover(f1, f2):
-    # the forest crossover should be here ?
-    # also, the mutation?
+    def build_visualization(self):
 
-    def build_visualization(self, i):
-
-        folder_name = 'graphviz-output/Forest({})_{}/'.format(self.forest_id, i)
+        folder_name = 'graphviz-output/Forest({})/'.format(self.forest_id)
         os.makedirs(folder_name)
 
         for t in self.trees:
@@ -47,7 +42,7 @@ class Tree:
     # just for visualization
     tree_counter = 0
 
-    def __init__(self, input_size, depth):  # como saber ao certo a profundidade ?
+    def __init__(self, input_size, depth):
 
         self.input_size = input_size
         D.input_size = input_size
@@ -65,7 +60,8 @@ class Tree:
         # never forget to input the tree
         assert input_d.shape == (self.input_size,)
         D.input_reference = input_d
-        return 1.0 if 0.5 < self.root.forward() else 0.0
+        # return 1.0 if 0.5 < self.root.forward() else 0.0
+        return self.root.forward()
 
     def build_visualization(self, folder):
 
@@ -166,11 +162,11 @@ class Tree:
             t_node.parent.left_child = new_sub_tree
         else:
             t_node.parent.right_child = new_sub_tree
-        # new_sub_tree.parent = t_node.parent # already seted on creation
+        # new_sub_tree.parent = t_node.parent # already setted on creation
 
         # now, the subtree from t_node to end is left to the garbage colector
         # del t_node
-        # I implemented the __del__ to guarantee that the nodes are not used due to wrong implementation
+        # It was implemented the __del__ to guarantee that the nodes are not used due to wrong implementation
 
         return t
 
@@ -181,7 +177,6 @@ class P:
     node_counter = 0
 
     def __init__(self, depth, max_depth, parent):
-        # print(depth, max_depth)
         assert depth <= max_depth
         self.parent = parent
         self.left_child = W(depth + 1, max_depth, self)
@@ -194,7 +189,6 @@ class P:
         del self.right_child
         del self
 
-    # TODO: very confusing how is the forward of P, need to check this
     def forward(self):
         left_child_out = self.left_child.forward()
         right_child_out = self.right_child.forward()
@@ -202,9 +196,7 @@ class P:
         return self._sigmoid(left_child_out + right_child_out)
 
     def _sigmoid(self, x):
-        # return 1.0 / (1.0 + np.exp(-x)) # not safe
-        return scipy.special.expit(x) # safer
-
+        return scipy.special.expit(x) # safer than 1.0 / (1.0 + np.exp(-x))
 
     def build_visualization(self, viz, parent_id):
 
@@ -226,7 +218,6 @@ class W:
     node_counter = 0
 
     def __init__(self, depth, max_depth, parent):
-        # print(depth, max_depth)
         assert depth <= max_depth
         self.parent = parent
         self.node_id = W.node_counter
@@ -272,7 +263,6 @@ class A:
     node_counter = 0
 
     def __init__(self, depth, max_depth, parent):
-        # print(depth, max_depth)
         assert depth <= max_depth
         self.parent = parent
         self.node_id = A.node_counter
@@ -305,7 +295,6 @@ class A:
 
 
     def build_visualization(self, viz, parent_id):
-
         node_id = 'A{}({})'.format(self.node_id, self.op_symbol)
         viz.node(node_id, node_id)
         viz.edge(parent_id, node_id)
@@ -324,7 +313,6 @@ class F:
     node_counter = 0
 
     def __init__(self, depth, max_depth, parent):
-        # print(depth, max_depth)
         assert depth <= max_depth
         self.parent = parent
         self.node_id = F.node_counter
@@ -335,7 +323,6 @@ class F:
         return self.value
 
     def build_visualization(self, viz, parent_id):
-
         node_id = 'F{}({})'.format(self.node_id, str(self.value))
         viz.node(node_id, node_id)
         viz.edge(parent_id, node_id)
@@ -353,12 +340,11 @@ class D:
     input_reference = None  # should be initialized before the first use
 
     def __init__(self, depth, max_depth, parent):
-        # print(depth, max_depth)
         assert depth <= max_depth
         self.parent = parent
         self.node_id = D.node_counter
         D.node_counter += 1
-        self.idx = random.choice(list(range(D.input_size))) # this is correct ? this is implementing also a feature selection like
+        self.idx = random.choice(list(range(D.input_size)))
 
     def forward(self):
         return D.input_reference[self.idx]
