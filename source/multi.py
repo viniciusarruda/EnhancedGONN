@@ -1,8 +1,7 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
-from tree import Tree, Forest
+from tree import Tree, Forest, copy_obj
 import random
-import copy
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import time
@@ -36,34 +35,39 @@ def forest_accuracy(forest, X, Y):
     return (expected == predicted).mean()
 
 
-def fitness(expected, predicted):
+def fitness(expected, predicted, count_evals=True):
     assert expected.shape == predicted.shape
-    expected = np.argmax(expected, axis=1)
-    predicted = np.argmax(predicted, axis=1)
-    error = (expected != predicted).mean()
-    # error = np.square(expected - predicted).mean() # descomentar linha que joga pra 0 ou 1 no arquivo tree.py (linha 63) caso descomentar aqui
-    return 1.0 / (1.0 + error), error
-
-fit_evals = 0
-def evaluate_forest(forest, X_train, Y_train, count_evals=True):
+    
     global fit_evals
     if count_evals:
         fit_evals += 1
         if fit_evals > MAX_EVALUATIONS:
             raise MaxEvaluationsExceeded()
 
+    expected = np.argmax(expected, axis=1)
+    predicted = np.argmax(predicted, axis=1)
+    error = (expected != predicted).mean()
+
+    # error = np.square(expected - predicted).mean() # descomentar linha que joga pra 0 ou 1 no arquivo tree.py (linha 63) caso descomentar aqui
+    # atualizar error_from_fitness function
+    
+    return 1.0 / (1.0 + error)
+    # return (expected == predicted).mean()
+
+def error_from_fitness(f):
+    return 1.0/f - 1.0
+    # return 1.0 - f
+
+def evaluate_forest(forest, X_train, Y_train, count_evals=True):
     outputs = np.zeros([X_train.shape[0], Y_train.shape[1]])
     for i in range(X_train.shape[0]):
         outputs[i] = forest.forward(X_train[i, :])
-    return fitness(Y_train, outputs)
+    return fitness(Y_train, outputs, count_evals)
 
 def evaluate_population(population, X_train, Y_train):
-    error = None
     for p in range(len(population)):
-        population[p][1], e = evaluate_forest(population[p][0], X_train, Y_train, count_evals=False)
-        if error is None or e < error:
-            error = e
-    return sorted(population, key=lambda x: x[1], reverse=True), error
+        population[p][1] = evaluate_forest(population[p][0], X_train, Y_train, count_evals=False)
+    return sorted(population, key=lambda x: x[1], reverse=True)
 
 def one_hot_encoder(classes, n_classes):
     assert len(classes.shape) == 1
@@ -112,19 +116,17 @@ def plot_confusion_matrix(cm, classes, normalize=True, filepath=None):
     plt.close()
 
 
-def main(k, epochs, dataset):
-
-    random.seed(SEED)
-    np.random.seed(SEED)
+def main(k, epochs, dataset, seed, output_folder):
 
     X, Y = data_loader('datasets/{}.npy'.format(dataset))
     n_features, n_classes = {'breastEW':(30, 2), 'hepatitis':(19, 2), 'multiple_features':(649, 10), 'iris':(4, 3)}[dataset]  # I put iris here just to test but it was not in the first assignment so we do not need to include it in our results
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=SEED, stratify=Y)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=seed, stratify=Y)
     X_train = data_normalizer(X_train) # Yes, should be normalized after the train test split
     X_test = data_normalizer(X_test)
     Y_train = one_hot_encoder(Y_train, n_classes)
     Y_test = one_hot_encoder(Y_test, n_classes)
 
+    stop_error = 0.01
     pr, pm, pc = 0.2, 0.2, 0.6 # Pr%, Pm%, Pc% in the paper
     n_pr, n_pm, n_pc = int(k * pr), int(k * pm), int(k * pc)
 
@@ -134,17 +136,17 @@ def main(k, epochs, dataset):
 
     population = [[Forest(input_size=X_train.shape[1], n_classes=n_classes), 0.0] for _ in range(k)]
 
-    error = None
-
     for e in tqdm(range(epochs)):
 
         try:
 
-            population, e0 = evaluate_population(population, X_train, Y_train)
+            population = evaluate_population(population, X_train, Y_train)
             record_fitness.append(population[0][1])
 
-            if error is None or e0 < error:
-                error = e0
+            best_error = error_from_fitness(population[0][1])
+            if stop_error > best_error:
+                # print('Minimum error {} with fitness {} reached at iteration {}'.format(best_error, population[0][1], e))
+                break
 
             next_gen = population[:n_pr]
             population_to_crossover = population[n_pr:]
@@ -169,38 +171,31 @@ def main(k, epochs, dataset):
                 ia[0].trees[idx] = gen_1
                 ib[0].trees[idx] = gen_2
 
-                f1, e1 = evaluate_forest(ia[0], X_train, Y_train)
-                f2, e2 = evaluate_forest(ib[0], X_train, Y_train)
+                f1 = evaluate_forest(ia[0], X_train, Y_train)
+                f2 = evaluate_forest(ib[0], X_train, Y_train)
 
-                error = min([e1, e2, error])
-
-                a_appended = False
-                b_appended = False
+                a_appended, b_appended = False, False
 
                 if f1 > ia[1]:
-                    new_individuals.append([copy.deepcopy(ia[0]), f1])
+                    new_individuals.append([copy_obj(ia[0]), f1])
                     a_appended = True
 
                 if f2 > ib[1]:
-                    new_individuals.append([copy.deepcopy(ib[0]), f2])
+                    new_individuals.append([copy_obj(ib[0]), f2])
                     b_appended = True
 
                 # another possibility
                 if not a_appended:
                     ia[0].trees[idx] = gen_2
-                    f3, e3 = evaluate_forest(ia[0], X_train, Y_train)
-                    if e3 < error:
-                        error = e3
+                    f3 = evaluate_forest(ia[0], X_train, Y_train)
                     if f3 > ia[1]:
-                        new_individuals.append([copy.deepcopy(ia[0]), f3])
+                        new_individuals.append([copy_obj(ia[0]), f3])
 
                 if not b_appended:
                     ib[0].trees[idx] = gen_1
-                    f4, e4 = evaluate_forest(ib[0], X_train, Y_train)
-                    if e4 < error:
-                        error = e4
+                    f4 = evaluate_forest(ib[0], X_train, Y_train)
                     if f4 > ib[1]:
-                        new_individuals.append([copy.deepcopy(ib[0]), f4])
+                        new_individuals.append([copy_obj(ib[0]), f4])
 
                 # revert
                 ia[0].trees[idx] = ta
@@ -211,7 +206,7 @@ def main(k, epochs, dataset):
 
             next_gen += new_individuals[:n_pc]
             individuals_to_mutate = new_individuals[n_pc:]
-            assert len(individuals_to_mutate) == n_pm
+
 
             new_individuals = []
 
@@ -228,64 +223,78 @@ def main(k, epochs, dataset):
 
                     f[0].trees[idx] = t_mutated
 
-                    fit, e5 = evaluate_forest(f[0], X_train, Y_train)
-                    if e5 < error:
-                        error = e5
+                    fit = evaluate_forest(f[0], X_train, Y_train)
 
+                    appended = False
                     if fit > f[1]:
-                        new_individuals.append([copy.deepcopy(f[0]), fit])
+                        new_individuals.append([copy_obj(f[0]), fit])
+                        appended = True
+
+                    # revert
+                    f[0].trees[idx] = t
+
+                    if appended:
                         break
             # end of mutation
 
-            assert len(new_individuals) == n_pm
             next_gen += new_individuals
-            assert len(next_gen) == k
 
             population = next_gen
-
-            if 0.01 > error:
-                break
         
         except MaxEvaluationsExceeded:
-            print('Maximum number of fitness evaluations reached at iteration {}'.format(e))
+            # print('Maximum number of fitness evaluations reached at iteration {}'.format(e))
             break
 
 
-    population, error = evaluate_population(population, X_train, Y_train)
+    population = evaluate_population(population, X_train, Y_train)
     record_fitness.append(population[0][1])
 
-    print('Time spent: {}'.format(time.clock() - start_t))
+    time_spent = time.clock() - start_t
 
     best_forest, training_fitness = population[0]
 
-    best_forest.build_visualization() # the best forest is saved. Before running, clean the folder
+    best_forest.build_visualization('{}graphviz/'.format(output_folder)) # the best forest is saved. Before running, clean the folder
 
-    print('Training fitness: ', training_fitness)
+    training_acc = forest_accuracy(best_forest, X_train, Y_train)
 
     plt.figure()
     plt.plot(np.arange(len(record_fitness)), record_fitness)
     plt.tight_layout()
-    plt.show()
+    plt.savefig('{}/best_train_fitness_hist.jpg'.format(output_folder))
+    plt.close()
 
     ######## Testing
 
-    testing_fitness, error = evaluate_forest(best_forest, X_test, Y_test, count_evals=False)
+    testing_fitness = evaluate_forest(best_forest, X_test, Y_test, count_evals=False)
     testing_acc = forest_accuracy(best_forest, X_test, Y_test)
-    print('Testing fitness: ', testing_fitness)
-    print('Testing error: ', error)
-    print('Testing accuracy: ', testing_acc)
 
     cm = evaluate_and_confusion_matrix(best_forest, X_test, Y_test)
-    plot_confusion_matrix(cm, np.arange(n_classes))
+    plot_confusion_matrix(cm, np.arange(n_classes), filepath='{}/test_cm.jpg'.format(output_folder))
+
+    n_features_used = len(best_forest.get_number_used_features().keys())
+
+    return time_spent, training_fitness, training_acc, testing_fitness, testing_acc, n_features_used
 
 
 if __name__ == "__main__":
 
-    # for reproducibility
-    SEED = 0
-    MAX_EVALUATIONS = 20000 # 40000 in the paper
+    MAX_EVALUATIONS = 40000 # 40000 in the paper
+    k = 100
+    epochs = MAX_EVALUATIONS # tava 10
 
-    dataset = 'iris'
-    k = 10
-    epochs = 7
-    main(k, epochs, dataset)
+    # max evaluation can be divided by number of features..
+
+    for dataset in tqdm(['iris', 'breastEW', 'hepatitis', 'multiple_features']):
+        
+        record_stats = []
+        
+        for seed in tqdm(range(20)):
+            fit_evals = 0 # global variable
+            random.seed(seed)
+            np.random.seed(seed)
+            output_folder = 'outputs/{}/{}/'.format(dataset, seed)
+            outputs = main(k, epochs, dataset, seed, output_folder)
+            record_stats.append((seed,) + outputs)
+
+        with open('outputs/{}/stats.csv'.format(dataset), 'w') as f:
+            f.write('\n'.join(['{},{},{},{},{},{},{}'.format(*rs) for rs in record_stats]))
